@@ -55,7 +55,7 @@ string convertToRoman( int input, int lower_case )
 }
 
 string convert( string const & in, DICT_TYPE type, map < string, string > const * pAbrv,
-                Dictionary::Class *dictPtr, bool isLogicalFormat )
+                Dictionary::Class *dictPtr, bool isLogicalFormat, unsigned revisionNumber )
 {
 //  DPRINTF( "Source>>>>>>>>>>: %s\n\n\n", in.c_str() );
 

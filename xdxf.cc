@@ -75,6 +75,7 @@ struct IdxHeader
   uint32_t signature; // First comes the signature, XDXF
   uint32_t formatVersion; // File format version (CurrentFormatVersion)
   uint32_t articleFormat; // ArticleFormat value, except that 0 = bad file
+  uint32_t revisionNumber; // Format revision
   uint32_t langFrom; // Source language
   uint32_t langTo;   // Target language
   uint32_t articleCount; // Total number of articles
@@ -552,7 +553,7 @@ void XdxfDictionary::loadArticle( uint32_t address,
   }
 
   articleText = Xdxf2Html::convert( string( articleBody ), Xdxf2Html::XDXF, idxHeader.hasAbrv ? &abrv : NULL, this,
-                                    fType == Logical );
+                                    fType == Logical, idxHeader.revisionNumber );
 
   free( articleBody );
 }
@@ -686,7 +687,7 @@ void addAllKeyTags( QXmlStreamReader & stream, list< QString > & words )
     return;
   }
 
-  for( ; ; )
+  while( !stream.atEnd() )
   {
     stream.readNext();
   
@@ -723,8 +724,7 @@ void indexArticle( GzippedFile & gzFile,
                    ChunkedStorage::Writer & chunks,
                    unsigned & articleCount,
                    unsigned & wordCount,
-                   ArticleFormat defaultFormat,
-                   int revisionNumber )
+                   ArticleFormat defaultFormat )
 {
   ArticleFormat format( Default );
 
@@ -1078,7 +1078,7 @@ vector< sptr< Dictionary::Class > > makeDictionaries(
               idxHeader.langTo = LangCoder::findIdForLanguageCode3( str.c_str() );
 
               bool isLogical = ( stream.attributes().value( "format" ) == "logical" );
-              int revisionNumber = ( stream.attributes().value( "revision" ).toString().toInt() );
+              idxHeader.revisionNumber = stream.attributes().value( "revision" ).toString().toUInt();
 
               idxHeader.articleFormat = isLogical ? Logical : Visual;
 
@@ -1172,7 +1172,7 @@ vector< sptr< Dictionary::Class > > makeDictionaries(
                   if ( stream.name() == "ar" )
                   {
                     indexArticle( gzFile, stream, indexedWords, chunks,
-                                  articleCount, wordCount, isLogical ? Logical : Visual, revisionNumber );
+                                  articleCount, wordCount, isLogical ? Logical : Visual );
                   }
                 }
               }
