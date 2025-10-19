@@ -1,0 +1,62 @@
+name: Build AppImage
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get -y install git pkg-config build-essential fuse libfuse2 qt5-qmake \
+            libvorbis-dev zlib1g-dev libhunspell-dev x11proto-record-dev \
+            qtdeclarative5-dev qtwebengine5-dev libxtst-dev liblzo2-dev libbz2-dev \
+            libao-dev libavutil-dev libavformat-dev libswresample-dev libtiff5-dev libeb16-dev \
+            libqt5webkit5-dev libqt5svg5-dev libqt5x11extras5-dev qttools5-dev \
+            qttools5-dev-tools qtmultimedia5-dev libqt5multimedia5-plugins libopencc-dev liblzma-dev libzstd-dev doxygen cmake
+
+      - name: Build OpenCC
+        run: |
+          git clone https://github.com/BYVoid/OpenCC
+          cd OpenCC/
+          make PREFIX=/usr -j$(nproc)
+          sudo make install
+
+      - name: Build GoldenDict
+        run: |
+          qmake CONFIG+=release PREFIX=/usr CONFIG+=old_hunspell CONFIG+=zim_support
+          make -j$(nproc)
+          make INSTALL_ROOT=appdir -j$(nproc) install
+          find appdir/
+
+      - name: Download and prepare linuxdeployqt
+        run: |
+          wget -c -nv "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+          chmod a+x linuxdeployqt-continuous-x86_64.AppImage
+          unset QTDIR
+          unset QT_PLUGIN_PATH
+          unset LD_LIBRARY_PATH
+          mkdir -p appdir/usr/lib/
+          cp /usr/lib/x86_64-linux-gnu/libssl.so.1.1 appdir/usr/lib/ || \
+            cp /usr/lib/x86_64-linux-gnu/libssl.so.3 appdir/usr/lib/ || true
+          cp /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 appdir/usr/lib/ || \
+            cp /usr/lib/x86_64-linux-gnu/libcrypto.so.3 appdir/usr/lib/ || true
+          ./linuxdeployqt-continuous-x86_64.AppImage appdir/usr/share/applications/*.desktop -appimage
+
+      - name: Inspect linked libraries
+        if: success()
+        run: |
+          find appdir -executable -type f -exec ldd {} \; | grep " => /usr" | cut -d " " -f 2-3 | sort | uniq
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoldenDict-AppImage
+          path: GoldenDict*.AppImage*
